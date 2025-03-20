@@ -10,7 +10,20 @@ const fs = require("fs");
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+// ✅ Allow only your frontend domain in CORS
+const allowedOrigins = ["https://www.srististha.com.np"];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("❌ CORS Policy: Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, "uploads");
@@ -22,19 +35,21 @@ if (!fs.existsSync(uploadDir)) {
 app.use("/uploads", express.static("uploads"));
 
 // **Predefined Admin Credentials**
-const ADMIN_EMAIL = "heem@gmail.com";
-const ADMIN_PASSWORD = "heem@123";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "heem@gmail.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "heem@123";
 
 // **Connect to MongoDB**
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("✅ MongoDB Connected"))
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
 // **User Schema**
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  isAdmin: { type: Boolean, default: true }
+  isAdmin: { type: Boolean, default: true },
 });
 const User = mongoose.model("User", UserSchema);
 
@@ -63,11 +78,6 @@ const verifyToken = (req, res, next) => {
     res.status(401).json({ message: "❌ Invalid or Expired Token" });
   }
 };
-
-// **Admin Registration (Disabled)**
-app.post("/api/register", async (req, res) => {
-  return res.status(403).json({ message: "❌ Admin registration is disabled." });
-});
 
 // **Admin Login**
 app.post("/api/login", async (req, res) => {
@@ -99,7 +109,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
-  }
+  },
 });
 const upload = multer({ storage });
 
